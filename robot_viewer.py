@@ -51,6 +51,7 @@ while True:
 
                 frame =cv2.imdecode(np.frombuffer(jpg, dtype=np.uint8),cv2.IMREAD_COLOR)
                 frame= cv2.resize(frame,(640,480))
+                frame =cv2.flip(frame,1)
 
                 #YOLO detection
                 results= model(frame,verbose=False)
