@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+
+# Large Models & Weights (The big stuff!)
+*.pt
+*.zip
+robot_brain/audio/models/
+robot_brain/vision/models/
+
+# OS/IDE junk
+.DS_Store
+.vscode/

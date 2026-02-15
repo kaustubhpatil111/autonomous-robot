@@ -9,7 +9,7 @@ import time
 MODEL_PATH = os.path.join(
     os.path.dirname(__file__),
     "models",
-    "vosk-model-en-us-0.22"          # <-- change to your model folder name
+    "vosk-model-small-en-us-0.15"          # <-- change to your model folder name
 )
 
 class SpeechListerner:
