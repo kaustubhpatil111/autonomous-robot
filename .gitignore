@@ -1,15 +1,26 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
+# Python env
 .venv/
 
-# Large Models & Weights (The big stuff!)
-*.pt
-*.zip
-robot_brain/audio/models/
-robot_brain/vision/models/
+# Python cache
+__pycache__/
+*.pyc
 
-# OS/IDE junk
-.DS_Store
+# AI models
+models/
+*.pt
+*.pth
+
+# Speech models
+robot_brain/audio/models/
+
+# datasets
+data/
+
+
+
+# logs
+*.log
+
+# IDE
 .vscode/
+.idea/
