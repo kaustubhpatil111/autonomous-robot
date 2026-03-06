@@ -1,44 +1,44 @@
-from fuzzywuzzy import fuzz, process
+# robot_brain/core/interaction.py
+from robot_brain.core.llm_brain import LLMBrain
+import datetime
 
 class InteractionBrain:
     def __init__(self, voice=None):
         self.voice = voice
-        # Define commands and their responses, and whether they trigger sleep
-        self.commands = {
-            "hello": ("Hello Kaustubh!", False),
-            "hi": ("Hello Kaustubh!", False),
-            "how are you": ("I am functioning perfectly, thank you.", False),
-            "what do you see": ("I am watching the room through my camera.", False),
-            "sleep": ("Going to sleep mode.", True),
-            "goodbye": ("Goodbye! Going to sleep.", True),
-            "shut down": ("Shutting down. Goodnight.", True),
-            "what is your name": ("My name is Sheru, your desktop companion.", False),
-            "who are you": ("I am Sheru, your robotic dog.", False),
-            "tell me a joke": ("Why don't scientists trust atoms? Because they make up everything!", False),
-            "what time is it": (self._get_time, False),   # dynamic response
+        self.llm = LLMBrain()   # connects to Ollama
+        self.context = {
+            "battery": 100,          # placeholder, update from main loop
+            "location": "living room",
+            "detections": "none",
+            "time": datetime.datetime.now().strftime("%H:%M")
         }
-        # For fuzzy matching, we use the keys as choices
-        self.command_keys = list(self.commands.keys())
 
-    def _get_time(self):
-        from datetime import datetime
-        now = datetime.now().strftime("%I:%M %p")
-        return f"The time is {now}."
+    def update_context(self, **kwargs):
+        """Update context from sensors (called from main loop)."""
+        self.context.update(kwargs)
 
     def handle_command(self, text: str):
-        text = text.lower().strip()
-        print("Command:", text)
-
+        """
+        Returns: (reply_text, should_sleep)
+        """
         if not text:
-            return "I did not hear that.", False
+            return "I didn't hear anything.", False
 
-        # Fuzzy match against known commands (threshold 60)
-        best_match, score = process.extractOne(text, self.command_keys, scorer=fuzz.ratio)
-        if score >= 60:
-            response, should_sleep = self.commands[best_match]
-            # If response is a function, call it
-            if callable(response):
-                response = response()
-            return response, should_sleep
-        else:
-            return "I did not understand.", False
+        # If "sleep" is in command, handle locally for quick response
+        if "sleep" in text.lower():
+            return "Going to sleep. Goodnight!", True
+
+        # Prepare context for LLM
+        self.context["user_command"] = text
+        self.context["time"] = datetime.datetime.now().strftime("%H:%M")
+
+        # Get decision from LLM
+        decision = self.llm.decide(self.context)
+
+        # Extract reply message (if any)
+        reply = decision.get("message", "Okay.")
+        mode = decision.get("mode", "idle")
+
+        # You can also use 'mode' and 'target' to trigger behaviors in main loop
+        # For now, we just return the message
+        return reply, False

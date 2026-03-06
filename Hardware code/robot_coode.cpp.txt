@@ -1,0 +1,239 @@
+#include <SPI.h>
+#include <RF24.h>
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
+
+// ================= RESET =================
+bool lastResetButton = false;
+unsigned long lastResetTime = 0;
+#define RESET_DELAY 300
+
+// ================= NRF =================
+RF24 radio(PA4, PB1);
+const byte address[6] = "NODE1";
+
+// ================= MOTOR =================
+#define PWMA PA8
+#define AIN1 PB12
+#define AIN2 PB13
+#define PWMB PA15
+#define BIN1 PB14
+#define BIN2 PB15
+#define STBY PB3
+
+// ================= PCA9685 =================
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+
+#define SERVO_MIN 150
+#define SERVO_MAX 600
+
+#define BASE_SERVO 1
+#define RIGHT_ARM 3
+#define LEFT_ARM 8
+#define GRIPPER 11
+
+// ================= CONTROL =================
+#define DEADBAND 40
+#define SPEED 1.2   // 🔥 Faster but smooth
+
+// 🔴 ===== CHANGE LIMITS HERE ===== 🔴
+#define BASE_MIN 0
+#define BASE_MAX 180
+
+#define RIGHT_MIN 30
+#define RIGHT_MAX 180
+
+#define LEFT_MIN 0
+#define LEFT_MAX 120
+
+#define GRIP_MIN 100
+#define GRIP_MAX 170
+// =========================================
+
+// Current positions
+float baseAngle = 90;
+float rightAngle = 90;
+float leftAngle = 90;
+float gripAngle = 120;
+
+// ================= DATA =================
+struct DataPacket {
+  int16_t x;
+  int16_t y;
+  int16_t baseAngle;
+  int16_t rightArmAngle;
+  int16_t leftArmAngle;
+  int16_t gripperAngle;
+  bool joy1Button;
+  bool joy2Button;
+  bool mode;
+};
+
+DataPacket received;
+bool currentMode = false;
+unsigned long lastPacketTime = 0;
+
+// ================= MOTOR FUNCTIONS =================
+void stopMotors() {
+  analogWrite(PWMA, 0);
+  analogWrite(PWMB, 0);
+}
+
+void setLeftMotor(int speed) {
+  speed = constrain(speed, -255, 255);
+
+  if (speed > 0) {
+    digitalWrite(BIN1, HIGH);
+    digitalWrite(BIN2, LOW);
+  } else if (speed < 0) {
+    digitalWrite(BIN1, LOW);
+    digitalWrite(BIN2, HIGH);
+    speed = -speed;
+  } else {
+    digitalWrite(BIN1, LOW);
+    digitalWrite(BIN2, LOW);
+  }
+
+  analogWrite(PWMB, speed);
+}
+
+void setRightMotor(int speed) {
+  speed = constrain(speed, -255, 255);
+
+  if (speed > 0) {
+    digitalWrite(AIN1, HIGH);
+    digitalWrite(AIN2, LOW);
+  } else if (speed < 0) {
+    digitalWrite(AIN1, LOW);
+    digitalWrite(AIN2, HIGH);
+    speed = -speed;
+  } else {
+    digitalWrite(AIN1, LOW);
+    digitalWrite(AIN2, LOW);
+  }
+
+  analogWrite(PWMA, speed);
+}
+
+// ================= SERVO =================
+void setServo(int ch, float angle) {
+  angle = constrain(angle, 0, 180);
+  int pulse = map(angle, 0, 180, SERVO_MIN, SERVO_MAX);
+  pwm.setPWM(ch, 0, pulse);
+}
+
+// ================= SETUP =================
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(PWMA, OUTPUT);
+  pinMode(AIN1, OUTPUT);
+  pinMode(AIN2, OUTPUT);
+  pinMode(PWMB, OUTPUT);
+  pinMode(BIN1, OUTPUT);
+  pinMode(BIN2, OUTPUT);
+  pinMode(STBY, OUTPUT);
+  digitalWrite(STBY, HIGH);
+
+  Wire.begin();
+  pwm.begin();
+  pwm.setPWMFreq(50);
+
+  setServo(BASE_SERVO, baseAngle);
+  setServo(RIGHT_ARM, rightAngle);
+  setServo(LEFT_ARM, leftAngle);
+  setServo(GRIPPER, gripAngle);
+
+  radio.begin();
+  radio.setPALevel(RF24_PA_HIGH);
+  radio.setDataRate(RF24_250KBPS);
+  radio.openReadingPipe(0, address);
+  radio.startListening();
+}
+
+// ================= LOOP =================
+void loop() {
+
+  if (radio.available()) {
+    radio.read(&received, sizeof(received));
+    currentMode = received.mode;
+    lastPacketTime = millis();
+  }
+
+  if (millis() - lastPacketTime > 300) {
+    stopMotors();
+    return;
+  }
+
+  // ===== RESET (JOY2) =====
+  bool resetPressed = received.joy2Button;
+
+  if (resetPressed && !lastResetButton && millis() - lastResetTime > RESET_DELAY) {
+
+    Serial.println("RESET");
+
+    baseAngle = 90;
+    rightAngle = 90;
+    leftAngle = 90;
+    gripAngle = 120;
+
+    // Apply immediately
+    setServo(BASE_SERVO, baseAngle);
+    setServo(RIGHT_ARM, rightAngle);
+    setServo(LEFT_ARM, leftAngle);
+    setServo(GRIPPER, gripAngle);
+
+    delay(300);
+    lastResetTime = millis();
+  }
+
+  lastResetButton = resetPressed;
+
+  // ===== DRIVE MODE =====
+  if (!currentMode) {
+    int x = received.x - 512;
+    int y = received.y - 512;
+
+    if (abs(x) < DEADBAND) x = 0;
+    if (abs(y) < DEADBAND) y = 0;
+
+    int forward = map(y, -512, 512, -255, 255);
+    int turn = map(x, -512, 512, -255, 255);
+
+    setLeftMotor(forward + turn);
+    setRightMotor(forward - turn);
+  }
+
+  // ===== ARM MODE =====
+  else {
+    stopMotors();
+
+    float j1x = (received.x - 512) / 512.0;
+    float j1y = (received.y - 512) / 512.0;
+    float j2x = (received.baseAngle - 512) / 512.0;
+    float j2y = (received.rightArmAngle - 512) / 512.0;
+
+    if (abs(received.x - 512) < DEADBAND) j1x = 0;
+    if (abs(received.y - 512) < DEADBAND) j1y = 0;
+    if (abs(received.baseAngle - 512) < DEADBAND) j2x = 0;
+    if (abs(received.rightArmAngle - 512) < DEADBAND) j2y = 0;
+
+    leftAngle  += j1y * SPEED;
+    gripAngle  += j1x * SPEED;
+    baseAngle  += j2x * SPEED;
+    rightAngle += j2y * SPEED;
+
+    // 🔴 LIMITS APPLIED HERE 🔴
+    baseAngle  = constrain(baseAngle, BASE_MIN, BASE_MAX);
+    rightAngle = constrain(rightAngle, RIGHT_MIN, RIGHT_MAX);
+    leftAngle  = constrain(leftAngle, LEFT_MIN, LEFT_MAX);
+    gripAngle  = constrain(gripAngle, GRIP_MIN, GRIP_MAX);
+
+    setServo(BASE_SERVO, baseAngle);
+    setServo(RIGHT_ARM, rightAngle);
+    setServo(LEFT_ARM, leftAngle);
+    setServo(GRIPPER, gripAngle);
+  }
+
+  delay(20);
+}

@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🤖 ULTIMATE ROBOT CONTROL - DUAL JOYSTICK</title>
+    <style>
+        /* ===== RESET & VARIABLES ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        :root {
+            --primary: #0ef;
+            --primary-glow: rgba(0, 238, 255, 0.5);
+            --bg-dark: #0a0a0f;
+            --bg-panel: rgba(20, 20, 30, 0.95);
+            --bg-card: rgba(30, 30, 40, 0.8);
+            --text: #fff;
+            --text-dim: #aaa;
+            --success: #0f0;
+            --warning: #ff0;
+            --danger: #f00;
+            --border: #333;
+            --joystick-bg: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            background: linear-gradient(135deg, #0a0a0f, #1a1a2e);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: clamp(1.2rem, 4vw, 2rem);
+            color: var(--primary);
+            text-shadow: 0 0 20px var(--primary-glow);
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+
+        /* ===== STATUS BAR ===== */
+        .status-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-panel);
+            backdrop-filter: blur(10px);
+            padding: 10px 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            border: 1px solid var(--primary);
+            box-shadow: 0 0 15px rgba(0, 238, 255, 0.2);
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-led {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--danger);
+            box-shadow: 0 0 8px var(--danger);
+            transition: all 0.3s;
+        }
+
+        .status-led.connected {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        .badge {
+            background: rgba(0, 238, 255, 0.15);
+            padding: 4px 8px;
+            border-radius: 16px;
+            font-size: 0.8rem;
+            border: 1px solid var(--primary);
+        }
+
+        /* ===== MAIN GRID ===== */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        /* ===== VIDEO SECTION ===== */
+        .video-section {
+            background: var(--bg-panel);
+            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .video-container {
+            position: relative;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+            border: 2px solid var(--primary);
+            box-shadow: 0 0 20px rgba(0, 238, 255, 0.3);
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .video-overlay {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(0,0,0,0.7);
+            padding: 4px 8px;
+            border-radius: 16px;
+            font-size: 0.75rem;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+        }
+
+        /* ===== SENSOR DASHBOARD ===== */
+        .sensor-dashboard {
+            background: var(--bg-panel);
+            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            overflow-y: auto;
+            max-height: 500px;
+        }
+
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .sensor-card {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 10px;
+            border-left: 3px solid var(--primary);
+        }
+
+        .sensor-label {
+            color: var(--text-dim);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .sensor-value {
+            color: var(--primary);
+            font-size: 1.2rem;
+            font-weight: bold;
+            font-family: monospace;
+        }
+
+        .sensor-unit {
+            color: var(--text-dim);
+            font-size: 0.7rem;
+            margin-left: 4px;
+        }
+
+        .sensor-trend {
+            font-size: 0.8rem;
+            margin-left: 5px;
+        }
+
+        .raw-data {
+            background: #000;
+            border-radius: 6px;
+            padding: 8px;
+            font-family: monospace;
+            font-size: 0.7rem;
+            color: #0f0;
+            max-height: 80px;
+            overflow-y: auto;
+            border: 1px solid #333;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        /* ===== JOYSTICK SECTION ===== */
+        .joystick-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .joystick-container {
+            background: var(--bg-panel);
+            border-radius: 12px;
+            padding: 15px;
+            border: 1px solid var(--primary);
+            text-align: center;
+        }
+
+        .joystick-title {
+            color: var(--primary);
+            font-size: 1rem;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .joystick-subtitle {
+            color: var(--text-dim);
+            font-size: 0.7rem;
+            margin-bottom: 10px;
+        }
+
+        .joystick-pad {
+            width: 180px;
+            height: 180px;
+            margin: 0 auto;
+            background: var(--joystick-bg);
+            border-radius: 90px;
+            position: relative;
+            border: 2px solid var(--primary);
+            box-shadow: 0 0 20px rgba(0, 238, 255, 0.3);
+            touch-action: none;
+        }
+
+        .joystick-knob {
+            width: 60px;
+            height: 60px;
+            background: var(--primary);
+            border-radius: 30px;
+            position: absolute;
+            top: 60px;
+            left: 60px;
+            box-shadow: 0 0 20px var(--primary);
+            pointer-events: none;
+            transition: transform 0.05s linear;
+            border: 2px solid white;
+        }
+
+        .joystick-value {
+            margin-top: 10px;
+            color: var(--primary);
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+
+        /* ===== CONTROL PANELS ===== */
+        .control-panels {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .panel {
+            background: var(--bg-panel);
+            border-radius: 12px;
+            padding: 15px;
+            border: 1px solid var(--border);
+        }
+
+        .panel h2 {
+            font-size: 1rem;
+            color: var(--primary);
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 6px;
+        }
+
+        /* ===== BUTTON GRID ===== */
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .btn {
+            padding: 12px 5px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.1s;
+            color: var(--text);
+            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            touch-action: manipulation;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+            background: var(--primary);
+            color: #000;
+        }
+
+        .btn-icon {
+            font-size: 1.2rem;
+        }
+
+        .btn-label {
+            font-size: 0.7rem;
+        }
+
+        .btn-drive {
+            background: linear-gradient(135deg, #1a4a4a, #0a3a3a);
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, #4a1a1a, #3a0a0a);
+        }
+
+        /* ===== SLIDER CONTROLS ===== */
+        .slider-group {
+            margin: 12px 0;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+        }
+
+        .slider-value {
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        input[type=range] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #333;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            box-shadow: 0 0 8px var(--primary);
+            border: 2px solid #fff;
+        }
+
+        /* ===== MODE TOGGLE ===== */
+        .mode-toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #333;
+            transition: .3s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: var(--primary);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+
+        /* ===== PROGRESS BAR ===== */
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), #0ff);
+            transition: width 0.2s;
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            color: var(--text-dim);
+            font-size: 0.7rem;
+            padding: 10px;
+        }
+
+        /* ===== TABLET OPTIMIZATION ===== */
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .joystick-pad {
+                width: 150px;
+                height: 150px;
+            }
+            
+            .joystick-knob {
+                width: 50px;
+                height: 50px;
+                top: 50px;
+                left: 50px;
+            }
+            
+            .btn {
+                padding: 15px 5px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .joystick-section {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .status-bar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 DUAL JOYSTICK ROBOT CONTROL</h1>
+        
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-item">
+                <span class="status-led" id="wsLed"></span>
+                <span id="wsStatus">Connecting...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-led" id="espLed"></span>
+                <span id="espStatus">ESP32</span>
+            </div>
+            <div class="status-item">
+                <span class="status-led" id="stm32Led"></span>
+                <span id="stm32Status">STM32</span>
+            </div>
+            <div class="badge" id="fpsCounter">FPS: --</div>
+            <div class="badge" id="uptime">00:00</div>
+        </div>
+
+        <!-- Main Grid: Video + Sensors -->
+        <div class="main-grid">
+            <div class="video-section">
+                <div class="video-container">
+                    <img id="video" src="" alt="Camera Feed">
+                    <div class="video-overlay" id="videoInfo">WAITING</div>
+                </div>
+            </div>
+
+            <div class="sensor-dashboard">
+                <div class="sensor-grid" id="sensorGrid"></div>
+                <div class="raw-data" id="rawData">Waiting for data...</div>
+            </div>
+        </div>
+
+        <!-- DUAL JOYSTICK SECTION -->
+        <div class="joystick-section">
+            <!-- Drive Joystick (Left) -->
+            <div class="joystick-container">
+                <div class="joystick-title">🚗 DRIVE CONTROL</div>
+                <div class="joystick-subtitle">Move to drive / Stop to brake</div>
+                <div class="joystick-pad" id="driveJoystick">
+                    <div class="joystick-knob" id="driveKnob"></div>
+                </div>
+                <div class="joystick-value" id="driveValue">⬆️ 0% ⬅️ 0%</div>
+            </div>
+
+            <!-- Arm Joystick (Right) -->
+            <div class="joystick-container">
+                <div class="joystick-title">🦾 ARM CONTROL</div>
+                <div class="joystick-subtitle">Up/Down: Left Arm | Left/Right: Gripper</div>
+                <div class="joystick-pad" id="armJoystick">
+                    <div class="joystick-knob" id="armKnob"></div>
+                </div>
+                <div class="joystick-value" id="armValue">⬆️ 0° ⬅️ 0°</div>
+            </div>
+        </div>
+
+        <!-- Quick Control Buttons -->
+        <div class="control-panels">
+            <div class="panel">
+                <h2>⚡ QUICK ACTIONS</h2>
+                <div class="button-grid">
+                    <button class="btn btn-drive" ontouchstart="sendMove('forward')" ontouchend="sendMove('stop')" onmousedown="sendMove('forward')" onmouseup="sendMove('stop')" onmouseleave="sendMove('stop')">
+                        <span class="btn-icon">⬆️</span>
+                        <span class="btn-label">FWD</span>
+                    </button>
+                    <button class="btn btn-drive" ontouchstart="sendMove('backward')" ontouchend="sendMove('stop')" onmousedown="sendMove('backward')" onmouseup="sendMove('stop')" onmouseleave="sendMove('stop')">
+                        <span class="btn-icon">⬇️</span>
+                        <span class="btn-label">BWD</span>
+                    </button>
+                    <button class="btn btn-drive" ontouchstart="sendMove('left')" ontouchend="sendMove('stop')" onmousedown="sendMove('left')" onmouseup="sendMove('stop')" onmouseleave="sendMove('stop')">
+                        <span class="btn-icon">⬅️</span>
+                        <span class="btn-label">LEFT</span>
+                    </button>
+                    <button class="btn btn-drive" ontouchstart="sendMove('right')" ontouchend="sendMove('stop')" onmousedown="sendMove('right')" onmouseup="sendMove('stop')" onmouseleave="sendMove('stop')">
+                        <span class="btn-icon">➡️</span>
+                        <span class="btn-label">RIGHT</span>
+                    </button>
+                    <button class="btn btn-stop" onclick="sendMove('stop')">
+                        <span class="btn-icon">⏹️</span>
+                        <span class="btn-label">STOP</span>
+                    </button>
+                    <button class="btn" onclick="centerServos()">
+                        <span class="btn-icon">🎯</span>
+                        <span class="btn-label">CENTER</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>⚙️ SETTINGS</h2>
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span>Drive Speed</span>
+                        <span class="slider-value" id="speedDisplay">200</span>
+                    </div>
+                    <input type="range" id="driveSpeed" min="0" max="255" value="200">
+                </div>
+                
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span>Arm Speed</span>
+                        <span class="slider-value" id="armSpeedDisplay">2.0</span>
+                    </div>
+                    <input type="range" id="armSpeed" min="0.5" max="3.0" value="2.0" step="0.1">
+                </div>
+
+                <div class="mode-toggle">
+                    <span>Control Mode</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="modeToggle" onchange="toggleMode()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span id="modeText">NRF</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <span id="lastUpdate">--:--:--</span> | 
+            <span id="packetCount">0</span> pkts | 
+            <span>v3.3</span>
+        </div>
+    </div>
+
+    <script>
+        // ========== CONFIG ==========
+        const WS_URL = `ws://${window.location.hostname}:8766`;
+        const COMMAND_INTERVAL = 30; // ms - FAST for real-time feel
+
+        // ========== GLOBALS ==========
+        let ws = null;
+        let frameCount = 0;
+        let lastFpsUpdate = Date.now();
+        let reconnectAttempts = 0;
+        let lastStm32Time = 0;
+        let packetCount = 0;
+        
+        // Joystick states
+        let driveJoystick = { active: false, x: 0, y: 0 };
+        let armJoystick = { active: false, x: 0, y: 0 };
+        
+        // Command intervals
+        let driveInterval = null;
+        let armInterval = null;
+        
+        // Servo angles
+        let servos = {
+            base: 90,
+            rightArm: 90,
+            leftArm: 90,
+            gripper: 135,
+            tof: 90
+        };
+
+        // ========== INIT SENSOR GRID ==========
+        function initSensorGrid() {
+            const grid = document.getElementById('sensorGrid');
+            const sensors = [
+                { id: 'leftEnc', label: 'Left Enc', unit: 'cts', icon: '⚙️' },
+                { id: 'rightEnc', label: 'Right Enc', unit: 'cts', icon: '⚙️' },
+                { id: 'accX', label: 'Accel X', unit: 'm/s²', icon: '📊' },
+                { id: 'accY', label: 'Accel Y', unit: 'm/s²', icon: '📊' },
+                { id: 'accZ', label: 'Accel Z', unit: 'm/s²', icon: '📊' },
+                { id: 'gyroX', label: 'Gyro X', unit: '°/s', icon: '🔄' },
+                { id: 'gyroY', label: 'Gyro Y', unit: '°/s', icon: '🔄' },
+                { id: 'gyroZ', label: 'Gyro Z', unit: '°/s', icon: '🔄' },
+                { id: 'tofDist', label: 'ToF', unit: 'mm', icon: '📏' },
+                { id: 'baseAngle', label: 'Base', unit: '°', icon: '🦾' },
+                { id: 'gripperAngle', label: 'Grip', unit: '°', icon: '🤏' }
+            ];
+
+            sensors.forEach(s => {
+                const card = document.createElement('div');
+                card.className = 'sensor-card';
+                card.innerHTML = `
+                    <div class="sensor-label">${s.icon} ${s.label}</div>
+                    <div>
+                        <span class="sensor-value" id="${s.id}">0</span>
+                        <span class="sensor-unit">${s.unit}</span>
+                        <span class="sensor-trend" id="trend-${s.id}"></span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // ========== WEBSOCKET ==========
+        function connectWebSocket() {
+            ws = new WebSocket(WS_URL);
+            
+            ws.onopen = function() {
+                document.getElementById('wsLed').className = 'status-led connected';
+                document.getElementById('wsStatus').innerHTML = 'Connected';
+                reconnectAttempts = 0;
+            };
+            
+            ws.onclose = function() {
+                document.getElementById('wsLed').className = 'status-led';
+                document.getElementById('wsStatus').innerHTML = 'Disconnected';
+                
+                if (reconnectAttempts < 10) {
+                    reconnectAttempts++;
+                    setTimeout(connectWebSocket, 2000);
+                }
+            };
+            
+            ws.onmessage = function(event) {
+                if (event.data instanceof Blob) {
+                    handleVideo(event.data);
+                } else {
+                    handleData(event.data);
+                }
+            };
+        }
+
+        // ========== VIDEO ==========
+        function handleVideo(blob) {
+            const url = URL.createObjectURL(blob);
+            document.getElementById('video').src = url;
+            
+            frameCount++;
+            const now = Date.now();
+            if (now - lastFpsUpdate >= 1000) {
+                const fps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
+                document.getElementById('fpsCounter').innerHTML = `FPS: ${fps}`;
+                document.getElementById('videoInfo').innerHTML = `${fps}FPS`;
+                frameCount = 0;
+                lastFpsUpdate = now;
+            }
+            
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+        }
+
+        // ========== DATA ==========
+        function handleData(data) {
+            packetCount++;
+            document.getElementById('packetCount').innerHTML = packetCount;
+            document.getElementById('rawData').innerHTML = data;
+            
+            try {
+                const parsed = JSON.parse(data);
+                if (parsed.type === 'sensor') {
+                    // Update encoders
+                    if (parsed.encoders) {
+                        updateSensor('leftEnc', parsed.encoders.left);
+                        updateSensor('rightEnc', parsed.encoders.right);
+                    }
+                    
+                    // Update IMU
+                    if (parsed.imu) {
+                        if (parsed.imu.accel) {
+                            updateSensor('accX', parsed.imu.accel.x.toFixed(2));
+                            updateSensor('accY', parsed.imu.accel.y.toFixed(2));
+                            updateSensor('accZ', parsed.imu.accel.z.toFixed(2));
+                        }
+                        if (parsed.imu.gyro) {
+                            updateSensor('gyroX', parsed.imu.gyro.x.toFixed(2));
+                            updateSensor('gyroY', parsed.imu.gyro.y.toFixed(2));
+                            updateSensor('gyroZ', parsed.imu.gyro.z.toFixed(2));
+                        }
+                    }
+                    
+                    // Update ToF and servos
+                    if (parsed.tof) updateSensor('tofDist', parsed.tof.distance);
+                    if (parsed.servos) {
+                        updateSensor('baseAngle', parsed.servos.base);
+                        updateSensor('gripperAngle', parsed.servos.gripper);
+                        
+                        // Update stored values
+                        servos.base = parsed.servos.base;
+                        servos.rightArm = parsed.servos.right_arm;
+                        servos.leftArm = parsed.servos.left_arm;
+                        servos.gripper = parsed.servos.gripper;
+                    }
+                    
+                    lastStm32Time = Date.now();
+                    document.getElementById('stm32Led').className = 'status-led connected';
+                    document.getElementById('stm32Status').innerHTML = 'STM32 OK';
+                }
+            } catch(e) {
+                // CSV fallback
+                const values = data.split(',');
+                if (values.length >= 18) {
+                    updateSensor('leftEnc', values[1]);
+                    updateSensor('rightEnc', values[2]);
+                    updateSensor('accX', parseFloat(values[3]).toFixed(2));
+                    updateSensor('accY', parseFloat(values[4]).toFixed(2));
+                    updateSensor('accZ', parseFloat(values[5]).toFixed(2));
+                    updateSensor('gyroX', parseFloat(values[6]).toFixed(2));
+                    updateSensor('gyroY', parseFloat(values[7]).toFixed(2));
+                    updateSensor('gyroZ', parseFloat(values[8]).toFixed(2));
+                    updateSensor('tofDist', values[12]);
+                    updateSensor('baseAngle', values[14]);
+                    updateSensor('gripperAngle', values[17]);
+                }
+                lastStm32Time = Date.now();
+                document.getElementById('stm32Led').className = 'status-led connected';
+                document.getElementById('stm32Status').innerHTML = 'STM32 OK';
+            }
+            
+            document.getElementById('lastUpdate').innerHTML = new Date().toLocaleTimeString();
+        }
+
+        function updateSensor(id, value) {
+            const el = document.getElementById(id);
+            if (el) {
+                const old = parseFloat(el.innerHTML) || 0;
+                const val = parseFloat(value) || 0;
+                el.innerHTML = value;
+                
+                const trend = document.getElementById(`trend-${id}`);
+                if (trend) {
+                    if (val > old) trend.innerHTML = '↑';
+                    else if (val < old) trend.innerHTML = '↓';
+                    else trend.innerHTML = '→';
+                }
+            }
+        }
+
+        // ========== DRIVE JOYSTICK ==========
+        function setupDriveJoystick() {
+            const pad = document.getElementById('driveJoystick');
+            const knob = document.getElementById('driveKnob');
+            const valueDisplay = document.getElementById('driveValue');
+            
+            function handleStart(e) {
+                e.preventDefault();
+                driveJoystick.active = true;
+                
+                // Start sending commands rapidly
+                if (driveInterval) clearInterval(driveInterval);
+                driveInterval = setInterval(() => {
+                    if (driveJoystick.active) {
+                        sendDriveCommand();
+                    }
+                }, COMMAND_INTERVAL);
+            }
+            
+            function handleMove(e) {
+                e.preventDefault();
+                if (!driveJoystick.active) return;
+                
+                const touch = e.touches ? e.touches[0] : e;
+                const rect = pad.getBoundingClientRect();
+                
+                let x = touch.clientX - rect.left - rect.width/2;
+                let y = touch.clientY - rect.top - rect.height/2;
+                
+                // Normalize to circle
+                const distance = Math.sqrt(x*x + y*y);
+                const maxDist = rect.width/2;
+                
+                if (distance > maxDist) {
+                    x = (x / distance) * maxDist;
+                    y = (y / distance) * maxDist;
+                }
+                
+                // Update knob position
+                knob.style.transform = `translate(${x}px, ${y}px)`;
+                
+                // Store normalized values (-1 to 1)
+                driveJoystick.x = x / maxDist;
+                driveJoystick.y = -y / maxDist; // Invert Y
+                
+                // Update display
+                const speed = Math.round(Math.sqrt(driveJoystick.x*driveJoystick.x + driveJoystick.y*driveJoystick.y) * 100);
+                const angle = Math.round(Math.atan2(driveJoystick.y, driveJoystick.x) * 180 / Math.PI);
+                valueDisplay.innerHTML = `⬆️ ${Math.round(driveJoystick.y*100)}% ⬅️ ${Math.round(driveJoystick.x*100)}%`;
+            }
+            
+            function handleEnd(e) {
+                e.preventDefault();
+                driveJoystick.active = false;
+                driveJoystick.x = 0;
+                driveJoystick.y = 0;
+                knob.style.transform = 'translate(0px, 0px)';
+                valueDisplay.innerHTML = '⬆️ 0% ⬅️ 0%';
+                
+                // Send stop command
+                sendCommand({ cmd: "move", left: 0, right: 0 });
+                
+                if (driveInterval) {
+                    clearInterval(driveInterval);
+                    driveInterval = null;
+                }
+            }
+            
+            // Touch events
+            pad.addEventListener('touchstart', handleStart, { passive: false });
+            pad.addEventListener('touchmove', handleMove, { passive: false });
+            pad.addEventListener('touchend', handleEnd);
+            pad.addEventListener('touchcancel', handleEnd);
+            
+            // Mouse events (for testing on laptop)
+            pad.addEventListener('mousedown', handleStart);
+            window.addEventListener('mousemove', (e) => {
+                if (driveJoystick.active) handleMove(e);
+            });
+            window.addEventListener('mouseup', handleEnd);
+        }
+
+        // ========== ARM JOYSTICK ==========
+        function setupArmJoystick() {
+            const pad = document.getElementById('armJoystick');
+            const knob = document.getElementById('armKnob');
+            const valueDisplay = document.getElementById('armValue');
+            
+            function handleStart(e) {
+                e.preventDefault();
+                armJoystick.active = true;
+                
+                if (armInterval) clearInterval(armInterval);
+                armInterval = setInterval(() => {
+                    if (armJoystick.active) {
+                        sendArmCommand();
+                    }
+                }, COMMAND_INTERVAL);
+            }
+            
+            function handleMove(e) {
+                e.preventDefault();
+                if (!armJoystick.active) return;
+                
+                const touch = e.touches ? e.touches[0] : e;
+                const rect = pad.getBoundingClientRect();
+                
+                let x = touch.clientX - rect.left - rect.width/2;
+                let y = touch.clientY - rect.top - rect.height/2;
+                
+                const distance = Math.sqrt(x*x + y*y);
+                const maxDist = rect.width/2;
+                
+                if (distance > maxDist) {
+                    x = (x / distance) * maxDist;
+                    y = (y / distance) * maxDist;
+                }
+                
+                knob.style.transform = `translate(${x}px, ${y}px)`;
+                
+                armJoystick.x = x / maxDist;
+                armJoystick.y = -y / maxDist;
+                
+                // Calculate angle changes
+                const armSpeed = parseFloat(document.getElementById('armSpeed').value);
+                const leftChange = Math.round(armJoystick.y * armSpeed * 10);
+                const gripChange = Math.round(armJoystick.x * armSpeed * 10);
+                
+                valueDisplay.innerHTML = `⬆️ ${leftChange}° ⬅️ ${gripChange}°`;
+            }
+            
+            function handleEnd(e) {
+                e.preventDefault();
+                armJoystick.active = false;
+                armJoystick.x = 0;
+                armJoystick.y = 0;
+                knob.style.transform = 'translate(0px, 0px)';
+                valueDisplay.innerHTML = '⬆️ 0° ⬅️ 0°';
+                
+                if (armInterval) {
+                    clearInterval(armInterval);
+                    armInterval = null;
+                }
+            }
+            
+            pad.addEventListener('touchstart', handleStart, { passive: false });
+            pad.addEventListener('touchmove', handleMove, { passive: false });
+            pad.addEventListener('touchend', handleEnd);
+            pad.addEventListener('touchcancel', handleEnd);
+            
+            pad.addEventListener('mousedown', handleStart);
+            window.addEventListener('mousemove', (e) => {
+                if (armJoystick.active) handleMove(e);
+            });
+            window.addEventListener('mouseup', handleEnd);
+        }
+
+        // ========== COMMAND SENDING ==========
+        function sendDriveCommand() {
+            const speed = parseInt(document.getElementById('driveSpeed').value);
+            
+            // Differential drive calculation
+            let left = speed * (driveJoystick.y + driveJoystick.x);
+            let right = speed * (driveJoystick.y - driveJoystick.x);
+            
+            // Constrain
+            left = Math.max(-speed, Math.min(speed, Math.round(left)));
+            right = Math.max(-speed, Math.min(speed, Math.round(right)));
+            
+            sendCommand({
+                cmd: "move",
+                left: left,
+                right: right
+            });
+        }
+
+        function sendArmCommand() {
+            const armSpeed = parseFloat(document.getElementById('armSpeed').value);
+            
+            // Update servo angles
+            servos.leftArm += armJoystick.y * armSpeed;
+            servos.gripper += armJoystick.x * armSpeed;
+            
+            // Constrain
+            servos.leftArm = Math.max(0, Math.min(120, servos.leftArm));
+            servos.gripper = Math.max(100, Math.min(170, servos.gripper));
+            
+            // Send commands
+            sendCommand({
+                cmd: "servo",
+                ch: 8,
+                angle: Math.round(servos.leftArm)
+            });
+            
+            sendCommand({
+                cmd: "servo",
+                ch: 11,
+                angle: Math.round(servos.gripper)
+            });
+            
+            // Update displays
+            document.getElementById('leftArm').value = servos.leftArm;
+            document.getElementById('leftArmVal').innerHTML = Math.round(servos.leftArm) + '°';
+            document.getElementById('gripper').value = servos.gripper;
+            document.getElementById('gripperVal').innerHTML = Math.round(servos.gripper) + '°';
+        }
+
+        // ========== COMMAND HELPERS ==========
+        function sendCommand(obj) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(obj));
+            }
+        }
+
+        function sendMove(direction) {
+            const speed = parseInt(document.getElementById('driveSpeed').value);
+            let left = 0, right = 0;
+            
+            switch(direction) {
+                case 'forward': left = speed; right = speed; break;
+                case 'backward': left = -speed; right = -speed; break;
+                case 'left': left = -speed; right = speed; break;
+                case 'right': left = speed; right = -speed; break;
+                case 'stop': left = 0; right = 0; break;
+            }
+            
+            sendCommand({ cmd: "move", left: left, right: right });
+        }
+
+        function updateServo(ch, angle) {
+            const map = {1:'baseVal',3:'rightArmVal',8:'leftArmVal',11:'gripperVal',5:'tofVal'};
+            if (map[ch]) document.getElementById(map[ch]).innerHTML = angle + '°';
+            sendCommand({ cmd: "servo", ch: ch, angle: parseInt(angle) });
+        }
+
+        function centerServos() {
+            servos = { base:90, rightArm:90, leftArm:90, gripper:135, tof:90 };
+            
+            document.getElementById('base').value = 90;
+            document.getElementById('rightArm').value = 90;
+            document.getElementById('leftArm').value = 90;
+            document.getElementById('gripper').value = 135;
+            document.getElementById('tof').value = 90;
+            
+            updateServo(1, 90);
+            updateServo(3, 90);
+            updateServo(8, 90);
+            updateServo(11, 135);
+            updateServo(5, 90);
+        }
+
+        function toggleMode() {
+            const toggle = document.getElementById('modeToggle');
+            const mode = toggle.checked ? 'wifi' : 'manual';
+            document.getElementById('modeText').innerHTML = toggle.checked ? 'WiFi' : 'NRF';
+            sendCommand({ cmd: "mode", mode: mode });
+        }
+
+        // ========== MONITOR ==========
+        setInterval(() => {
+            if (Date.now() - lastStm32Time > 3000) {
+                document.getElementById('stm32Led').className = 'status-led';
+                document.getElementById('stm32Status').innerHTML = 'STM32 OFF';
+            }
+            
+            // ESP32 status from server will update via stats messages
+        }, 1000);
+
+        // ========== INIT ==========
+        window.onload = function() {
+            initSensorGrid();
+            connectWebSocket();
+            setupDriveJoystick();
+            setupArmJoystick();
+            centerServos();
+            
+            // Speed displays
+            document.getElementById('driveSpeed').addEventListener('input', e => {
+                document.getElementById('speedDisplay').innerHTML = e.target.value;
+            });
+            
+            document.getElementById('armSpeed').addEventListener('input', e => {
+                document.getElementById('armSpeedDisplay').innerHTML = e.target.value;
+            });
+            
+            document.getElementById('modeToggle').checked = false;
+        };
+    </script>
+</body>
+</html>
